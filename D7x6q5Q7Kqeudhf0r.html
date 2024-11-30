@@ -1,0 +1,1076 @@
+<html><head><base href="/" /><title>Chrome Radio - Connect to Global Radio Stations</title>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #000;
+    color: #fff;
+    min-height: 100vh;
+    overflow: hidden;
+  }
+
+  .globe-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    touch-action: none; /* Prevents default touch behaviors */
+  }
+
+  .controls-overlay {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    width: auto;
+    min-width: 300px;
+    max-width: 400px;
+    background: rgba(0, 0, 0, 0.8);
+    padding: 1rem;
+    z-index: 2;
+    backdrop-filter: blur(10px);
+    border-radius: 10px;
+  }
+
+  .station-list {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 300px;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    padding: 1rem;
+    z-index: 2;
+    backdrop-filter: blur(10px);
+    overflow-y: auto;
+  }
+
+  .station-card {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+
+  .station-card:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  .station-search {
+    width: 100%;
+    padding: 0.5rem;
+    border-radius: 5px;
+    border: none;
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    margin-bottom: 1rem;
+  }
+
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  button {
+    background: #4CAF50;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
+    color: white;
+    cursor: pointer;
+  }
+
+  .playing {
+    border: 2px solid #4CAF50;
+  }
+
+  #now-playing {
+    margin-bottom: 1rem;
+    color: #4CAF50;
+  }
+
+  .visualizer {
+    height: 30px;
+    margin: 1rem 0;
+  }
+
+  .visualizer-bars {
+    display: flex;
+    height: 100%;
+    align-items: flex-end;
+  }
+
+  .bar {
+    width: 3px;
+    background: #4CAF50;
+    margin: 0 2px;
+    transition: height 0.1s ease;
+  }
+
+  .country-filter {
+    width: 100%;
+    padding: 0.8rem;
+    border-radius: 8px;
+    border: 2px solid rgba(76, 175, 80, 0.3);
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    margin-bottom: 1rem;
+    font-size: 1rem;
+    transition: border-color 0.3s ease;
+  }
+
+  .country-filter:focus {
+    outline: none;
+    border-color: #4CAF50;
+  }
+
+  .country-filter option {
+    background: #1a1a1a;
+    color: white;
+  }
+
+  .filter-label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: #4CAF50;
+    font-weight: bold;
+  }
+
+  .volume-control {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    margin-top: 0.5rem;
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 6px;
+    background: rgba(76, 175, 80, 0.2);
+    border-radius: 3px;
+    outline: none;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    background: #4CAF50;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  input[type="range"]::-webkit-slider-thumb:hover {
+    background: #45a049;
+  }
+
+  input[type="range"]::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    background: #4CAF50;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  input[type="range"]::-moz-range-thumb:hover {
+    background: #45a049;
+  }
+
+  .volume-label {
+    color: #4CAF50;
+    min-width: 45px;
+    text-align: right;
+  }
+
+  .nearby-stations-overlay {
+    position: fixed;
+    top: 20px; /* Changed from bottom: 20px */
+    left: 20px; /* Changed from left: 340px */
+    width: auto;
+    min-width: 300px;
+    max-width: 400px;
+    max-height: 300px;
+    background: rgba(0, 0, 0, 0.8);
+    padding: 1rem;
+    z-index: 2;
+    backdrop-filter: blur(10px);
+    border-radius: 10px;
+    overflow-y: auto;
+  }
+
+  .nearby-station-card {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 0.8rem;
+    margin-bottom: 0.5rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+
+  .nearby-station-card:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  .marker-size-control {
+    position: fixed;
+    top: 20px;
+    right: 320px; /* Position it next to the station list */
+    background: rgba(0, 0, 0, 0.8);
+    padding: 1rem;
+    border-radius: 10px;
+    backdrop-filter: blur(10px);
+    z-index: 2;
+  }
+
+  .marker-size-control label {
+    display: block;
+    color: #4CAF50;
+    margin-bottom: 0.5rem;
+  }
+</style>
+</head>
+<body>
+<div class="marker-size-control">
+  <label for="marker-size">Marker Size</label>
+  <input 
+    type="range" 
+    id="marker-size" 
+    min="1" 
+    max="100" 
+    value="15"
+    title="Adjust marker size">
+</div>
+
+<div class="globe-container" id="globe"></div>
+
+<div class="station-list">
+  <div id="station-stats"></div>
+  <label class="filter-label" for="country-filter">Select Country</label>
+  <select class="country-filter" id="country-filter">
+    <option value="">Loading countries...</option>
+  </select>
+  <input type="text" class="station-search" placeholder="Search stations by name...">
+  <div id="station-list-container"></div>
+</div>
+
+<div class="controls-overlay">
+  <div id="now-playing">
+    <h3>Now Playing: <span id="current-station">Select a station</span></h3>
+  </div>
+  <div class="visualizer">
+    <div class="visualizer-bars" id="visualizer"></div>
+  </div>
+  <div class="controls">
+    <button id="play-pause">Play</button>
+    <button id="stop">Stop</button>
+  </div>
+  <div class="volume-control">
+    <input type="range" id="volume" min="0" max="100" value="50">
+    <span class="volume-label">50%</span>
+  </div>
+</div>
+
+<div class="nearby-stations-overlay">
+  <h3 style="color: #4CAF50; margin-bottom: 1rem;">Nearby Stations</h3>
+  <div id="nearby-stations-container"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"></script>
+<script>
+let stations = [];
+let countryBorders = [];
+let scene, camera, renderer, globe;
+let markers = [];
+let currentStation = null;
+let audio = new Audio();
+let visualizerInterval = null;
+let userLocationMarker = null; // Added user location marker
+let markerSize = 0.015;
+const markerSizeSlider = document.getElementById('marker-size');
+
+audio.volume = 0.5; // Set initial volume
+document.querySelector('.volume-label').textContent = '50%';
+
+// Create texture loader
+const textureLoader = new THREE.TextureLoader();
+
+// Load world map texture
+const texture = textureLoader.load('/1_earth_16k.jpg');
+
+async function fetchStations() {
+  const loadingMessage = document.getElementById('station-list-container');
+  loadingMessage.innerHTML = `
+    <div style="padding: 1rem; background: rgba(76, 175, 80, 0.1); border-radius: 8px;">
+      <h3 style="color: #4CAF50; margin-bottom: 0.5rem;">Loading Stations...</h3>
+      <div id="loading-progress" style="width: 100%; height: 4px; background: rgba(76, 175, 80, 0.2); border-radius: 2px;">
+        <div id="progress-bar" style="width: 0%; height: 100%; background: #4CAF50; border-radius: 2px; transition: width 0.3s;"></div>
+      </div>
+    </div>
+  `;
+
+  try {
+    // Use updated API endpoints to fetch more stations
+    const apiUrls = [
+      'https://at1.api.radio-browser.info/json/stations/search?limit=50000&order=clickcount&reverse=true',
+      'https://de1.api.radio-browser.info/json/stations/search?limit=50000&order=clickcount&reverse=true',
+      'https://fr1.api.radio-browser.info/json/stations/search?limit=50000&order=clickcount&reverse=true'
+    ];
+
+    let data;
+    for (const url of apiUrls) {
+      try {
+        const response = await fetch(url);
+        if (response.ok) {
+          const reader = response.body.getReader();
+          const contentLength = +response.headers.get('Content-Length');
+          
+          let receivedLength = 0;
+          let chunks = [];
+          
+          while(true) {
+            const {done, value} = await reader.read();
+            
+            if (done) break;
+            
+            chunks.push(value);
+            receivedLength += value.length;
+            
+            // Update progress bar
+            const progress = (receivedLength / contentLength) * 100;
+            document.getElementById('progress-bar').style.width = progress + '%';
+          }
+          
+          const chunksAll = new Uint8Array(receivedLength);
+          let position = 0;
+          for(let chunk of chunks) {
+            chunksAll.set(chunk, position);
+            position += chunk.length;
+          }
+          
+          const result = new TextDecoder("utf-8").decode(chunksAll);
+          data = JSON.parse(result);
+          break;
+        }
+      } catch (e) {
+        console.warn(`Failed to fetch from ${url}, trying next server...`);
+      }
+    }
+
+    if (!data) {
+      throw new Error('Failed to fetch stations from all servers');
+    }
+
+    // Update station filtering to be less restrictive and faster
+    stations = data.filter(validateStation).map(station => ({
+      name: station.name,
+      url: station.url_resolved,
+      lat: parseFloat(station.geo_lat || '0'),
+      lon: parseFloat(station.geo_long || '0'),
+      country: station.country === 'Unknown' ? 'International' : station.country,
+      language: station.language,
+      bitrate: station.bitrate,
+      reliability: 1
+    }));
+
+    // Sort stations by country once
+    stations.sort((a, b) => a.country.localeCompare(b.country));
+    
+    // Update UI
+    updateStationStats();
+    populateStations();
+    updateGlobeMarkers();
+    
+    // Show success message
+    loadingMessage.innerHTML = `
+      <div style="padding: 1rem; background: rgba(76, 175, 80, 0.1); border-radius: 8px;">
+        <h3 style="color: #4CAF50; margin-bottom: 0.5rem;">Stations Loaded Successfully</h3>
+        <p>Loaded ${stations.length} stations from ${new Set(stations.map(s => s.country)).size} countries</p>
+      </div>
+    `;
+  } catch (error) {
+    console.error('Error fetching stations:', error);
+    loadingMessage.innerHTML = `
+      <div style="color: #ff4444; padding: 1rem; background: rgba(255,0,0,0.1); border-radius: 8px;">
+        <h3>Error Loading Stations</h3>
+        <p>${error.message}</p>
+        <button onclick="fetchStations()" style="margin-top: 1rem;">
+          Retry Loading
+        </button>
+      </div>
+    `;
+  }
+}
+
+function validateStation(station) {
+  // Check for valid URL format
+  try {
+    new URL(station.url_resolved);
+  } catch {
+    return false;
+  }
+
+  // Must have required fields
+  if (!station.name || !station.url_resolved || !station.country) {
+    return false;
+  }
+
+  // URL must be HTTP/HTTPS
+  if (!station.url_resolved.startsWith('http')) {
+    return false;
+  }
+
+  // Avoid known problematic formats
+  const problematicFormats = ['.m3u', '.pls', '.xspf', '.asx'];
+  if (problematicFormats.some(format => station.url_resolved.toLowerCase().includes(format))) {
+    return false;
+  }
+
+  return true;
+}
+
+function playStation(station) {
+  const stationObj = typeof station === 'string' ? JSON.parse(station) : station;
+  
+  if (currentStation === stationObj) {
+    togglePlayPause();
+    return;
+  }
+
+  // Stop current audio and cleanup
+  if (audio) {
+    audio.pause();
+    audio.src = '';
+    audio.load();
+    audio = null;
+  }
+  
+  currentStation = stationObj;
+  
+  // Create new audio element with better settings
+  audio = new Audio();
+  audio.crossOrigin = "anonymous";
+  audio.volume = document.getElementById('volume').value / 100;
+  audio.preload = "auto";
+  
+  // Add CORS headers
+  const corsProxy = 'https://api.codetabs.com/v1/proxy?quest=';
+  const proxyUrl = corsProxy + encodeURIComponent(stationObj.url);
+  
+  // Show loading state
+  document.getElementById('current-station').textContent = `Loading ${stationObj.name}...`;
+  document.getElementById('play-pause').textContent = 'Loading...';
+  
+  // Update markers
+  markers.forEach((marker, index) => {
+    if (stations[index] === stationObj) {
+      marker.material.color.setHex(0xffff00);
+    } else {
+      marker.material.color.setHex(0x4CAF50);
+    }
+  });
+
+  // Multiple fallback URLs
+  const fallbackProxies = [
+    'https://api.codetabs.com/v1/proxy?quest=',
+    'https://cors-anywhere.herokuapp.com/',
+    'https://cors.bridged.cc/'
+  ];
+
+  let proxyIndex = 0;
+  let loadAttempts = 0;
+  const maxAttempts = 3;
+
+  function tryLoadStation() {
+    if (loadAttempts >= maxAttempts) {
+      handleStationError(stationObj, 'Failed after multiple attempts');
+      return;
+    }
+
+    const currentProxy = fallbackProxies[proxyIndex];
+    const urlToTry = currentProxy + encodeURIComponent(stationObj.url);
+
+    // Clear previous event listeners
+    audio.removeEventListener('error', handleError);
+    audio.removeEventListener('canplay', handleCanPlay);
+
+    // Set timeout for this attempt
+    const timeout = setTimeout(() => {
+      if (audio.readyState === 0) {
+        handleError();
+      }
+    }, 5000);
+
+    function handleCanPlay() {
+      clearTimeout(timeout);
+      document.getElementById('current-station').textContent = `${stationObj.name} (${stationObj.country})`;
+      document.getElementById('play-pause').textContent = 'Pause';
+      startVisualizer();
+    }
+
+    function handleError() {
+      clearTimeout(timeout);
+      
+      // Try next proxy
+      proxyIndex = (proxyIndex + 1) % fallbackProxies.length;
+      if (proxyIndex === 0) loadAttempts++;
+      
+      if (loadAttempts < maxAttempts) {
+        console.log(`Retrying with different proxy (attempt ${loadAttempts + 1})...`);
+        tryLoadStation();
+      } else {
+        handleStationError(stationObj, 'Station unavailable');
+      }
+    }
+
+    audio.addEventListener('canplay', handleCanPlay);
+    audio.addEventListener('error', handleError);
+
+    try {
+      audio.src = urlToTry;
+      const playPromise = audio.play();
+      
+      if (playPromise) {
+        playPromise.catch(error => {
+          console.warn('Playback error:', error);
+          handleError();
+        });
+      }
+    } catch (error) {
+      console.error('Station load error:', error);
+      handleError();
+    }
+  }
+
+  // Start first attempt
+  tryLoadStation();
+}
+
+// Replace the handleStationError function with this improved version
+function handleStationError(station, message) {
+  console.warn(`Station error: ${message}`, station);
+  
+  // Show error message with retry button
+  document.getElementById('current-station').innerHTML = `
+    Error: ${message} 
+    <button onclick="playStation(${JSON.stringify(station)})" 
+            style="margin-left: 10px; padding: 2px 8px; font-size: 12px;">
+      Retry
+    </button>
+  `;
+  
+  document.getElementById('play-pause').textContent = 'Play';
+  
+  // Cleanup
+  if (currentStation === station) {
+    currentStation = null;
+    if (audio) {
+      audio.pause();
+      audio.src = '';
+      audio.load();
+      audio = null;
+    }
+  }
+  
+  // Visual feedback
+  markers.forEach((marker, index) => {
+    if (stations[index] === station) {
+      marker.material.color.setHex(0xFF0000);
+      setTimeout(() => {
+        marker.material.color.setHex(0x4CAF50);
+      }, 2000);
+    }
+  });
+  
+  document.querySelectorAll('.station-card').forEach(card => {
+    if (card.querySelector('h3').textContent === station.name) {
+      card.classList.remove('playing');
+    }
+  });
+
+  stopVisualizer();
+}
+
+function populateCountryFilter() {
+  const countryFilter = document.getElementById('country-filter');
+  const countries = [...new Set(stations.map(station => station.country))].sort();
+  
+  countryFilter.innerHTML = `
+    <option value="">All Countries</option>
+    ${countries.map(country => `
+      <option value="${country}">${country}</option>
+    `).join('')}
+  `;
+}
+
+function updateStationStats() {
+  const stats = document.getElementById('station-stats');
+  stats.innerHTML = `
+    <div style="padding: 1rem; background: rgba(76, 175, 80, 0.1); border-radius: 8px; margin-bottom: 1rem;">
+      <h3 style="color: #4CAF50; margin-bottom: 0.5rem;">Station Statistics</h3>
+      <p>Total Stations: ${stations.length}</p>
+      <p>Countries: ${new Set(stations.map(s => s.country)).size}</p>
+    </div>
+  `;
+  
+  populateCountryFilter();
+}
+
+function updateMarkerSize(size) {
+  markerSize = size / 1000; // Convert slider value to appropriate scale
+  
+  // Update existing markers
+  markers.forEach(marker => {
+    marker.scale.set(markerSize/0.015, markerSize/0.015, markerSize/0.015);
+  });
+}
+
+function updateGlobeMarkers() {
+  markers.forEach(marker => scene.remove(marker));
+  markers = [];
+
+  const markerGeometry = new THREE.SphereGeometry(markerSize, 8, 8);
+  const markerMaterial = new THREE.MeshBasicMaterial({ 
+    color: 0x4CAF50,
+    transparent: true,
+    opacity: 0.8 
+  });
+
+  const batchSize = 1000;
+  for(let i = 0; i < stations.length; i += batchSize) {
+    const batch = stations.slice(i, i + batchSize);
+    
+    batch.forEach((station, index) => {
+      if (station.lat && station.lon) {
+        const marker = new THREE.Mesh(markerGeometry, markerMaterial.clone());
+        
+        const phi = (90 - station.lat) * (Math.PI / 180);
+        const theta = (station.lon + 180) * (Math.PI / 180);
+        marker.position.x = -5 * Math.sin(phi) * Math.cos(theta);
+        marker.position.y = 5 * Math.cos(phi);
+        marker.position.z = 5 * Math.sin(phi) * Math.sin(theta);
+        
+        marker.userData = { stationIndex: i + index };
+        
+        scene.add(marker);
+        markers.push(marker);
+      }
+    });
+  }
+}
+
+function initGlobe() {
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.getElementById('globe').appendChild(renderer.domElement);
+
+  controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.05;
+  controls.rotateSpeed = 0.5;
+  controls.minDistance = 5.1;  // Changed from 5.5 to allow closer zoom
+  controls.maxDistance = 30;
+  controls.enablePan = false;
+
+  const geometry = new THREE.SphereGeometry(5, 128, 128);
+  const material = new THREE.MeshPhongMaterial({
+    map: texture,
+    bumpScale: 0.05,
+    specular: new THREE.Color(0x333333),
+    shininess: 5
+  });
+  
+  globe = new THREE.Mesh(geometry, material);
+  scene.add(globe);
+
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+  scene.add(ambientLight);
+
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+  directionalLight.position.set(5, 3, 5);
+  scene.add(directionalLight);
+
+  loadCountryBorders();
+
+  camera.position.z = 15;
+
+  const raycaster = new THREE.Raycaster();
+  const mouse = new THREE.Vector2();
+
+  renderer.domElement.addEventListener('click', (event) => {
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+    raycaster.setFromCamera(mouse, camera);
+
+    const intersects = raycaster.intersectObjects(markers);
+
+    if (intersects.length > 0) {
+      const marker = intersects[0].object;
+      const station = stations[marker.userData.stationIndex];
+      playStation(station);
+    }
+  });
+
+  function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
+    renderer.render(scene, camera);
+  }
+  animate();
+}
+
+function showUserLocation() {
+  if ("geolocation" in navigator) {
+    navigator.geolocation.getCurrentPosition(async (position) => {
+      const lat = position.coords.latitude;
+      const lon = position.coords.longitude;
+      
+      try {
+        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`);
+        const data = await response.json();
+        const userCountry = data.address.country;
+        
+        const countryFilter = document.getElementById('country-filter');
+        countryFilter.value = userCountry;
+        
+        filterStations();
+        
+        const stationListContainer = document.getElementById('station-list-container');
+        stationListContainer.insertAdjacentHTML('afterbegin', `
+          <div style="padding: 1rem; background: rgba(76, 175, 80, 0.1); border-radius: 8px; margin-bottom: 1rem;">
+            <h3 style="color: #4CAF50; margin-bottom: 0.5rem;">Local Stations</h3>
+            <p>Showing radio stations from ${userCountry}</p>
+          </div>
+        `);
+      } catch (error) {
+        console.error('Error getting country from coordinates:', error);
+      }
+      
+      if (userLocationMarker) {
+        scene.remove(userLocationMarker);
+      }
+
+      const markerGeometry = new THREE.SphereGeometry(0.08, 16, 16);
+      const markerMaterial = new THREE.MeshBasicMaterial({
+        color: 0x00ffff,
+        transparent: true,
+        opacity: 0.8
+      });
+
+      userLocationMarker = new THREE.Mesh(markerGeometry, markerMaterial);
+      
+      const phi = (90 - lat) * (Math.PI / 180);
+      const theta = (lon + 180) * (Math.PI / 180);
+      userLocationMarker.position.x = -5 * Math.sin(phi) * Math.cos(theta);
+      userLocationMarker.position.y = 5 * Math.cos(phi);
+      userLocationMarker.position.z = 5 * Math.sin(phi) * Math.sin(theta);
+      
+      scene.add(userLocationMarker);
+
+      const targetPosition = new THREE.Vector3(
+        userLocationMarker.position.x * 2,
+        userLocationMarker.position.y * 2,
+        userLocationMarker.position.z * 2
+      );
+      camera.position.copy(targetPosition);
+      controls.target.set(0, 0, 0);
+      controls.update();
+
+      updateNearbyStations(lat, lon);
+
+    }, (error) => {
+      console.error('Error getting location:', error);
+      alert('Unable to get your location. Please ensure location services are enabled.');
+    });
+  } else {
+    alert('Geolocation is not supported by your browser');
+  }
+}
+
+function updateNearbyStations(userLat, userLon) {
+  const nearbyStations = stations.map(station => {
+    const distance = calculateDistance(userLat, userLon, station.lat, station.lon);
+    return { ...station, distance };
+  })
+  .filter(station => station.distance <= 500)
+  .sort((a, b) => a.distance - b.distance)
+  .slice(0, 20);
+
+  const container = document.getElementById('nearby-stations-container');
+  
+  if (nearbyStations.length === 0) {
+    container.innerHTML = `
+      <div style="color: #888; padding: 1rem;">
+        No stations found within 500km of your location
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = '';
+  
+  nearbyStations.forEach(station => {
+    const card = document.createElement('div');
+    card.className = 'nearby-station-card';
+    card.innerHTML = `
+      <h4 style="color: #4CAF50; margin-bottom: 0.3rem;">${station.name}</h4>
+      <p style="font-size: 0.9rem;">Distance: ${Math.round(station.distance)}km</p>
+      <p style="font-size: 0.8rem; color: #888;">${station.country}</p>
+    `;
+    card.addEventListener('click', () => playStation(station));
+    container.appendChild(card);
+  });
+}
+
+async function init() {
+  initGlobe();
+  await fetchStations();
+  showUserLocation();
+}
+
+window.addEventListener('load', init);
+
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371; // Earth's radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
+async function loadCountryBorders() {
+  try {
+    const response = await fetch('https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson');
+    const data = await response.json();
+    
+    const borderMaterial = new THREE.LineBasicMaterial({ 
+      color: 0x4CAF50,
+      opacity: 0.3,
+      transparent: true 
+    });
+
+    data.features.forEach(feature => {
+      if (feature.geometry.type === "Polygon") {
+        feature.geometry.coordinates.forEach(coord => {
+          drawCountryBorder(coord, borderMaterial);
+        });
+      } else if (feature.geometry.type === "MultiPolygon") {
+        feature.geometry.coordinates.forEach(polygons => {
+          polygons.forEach(coord => {
+            drawCountryBorder(coord, borderMaterial);
+          });
+        });
+      }
+    });
+  } catch (error) {
+    console.error('Error loading country borders:', error);
+  }
+}
+
+function drawCountryBorder(coordinates, material) {
+  const points = [];
+  coordinates.forEach(coord => {
+    const [lon, lat] = coord;
+    const phi = (90 - lat) * (Math.PI / 180);
+    const theta = (lon + 180) * (Math.PI / 180);
+    const x = -5 * Math.sin(phi) * Math.cos(theta);
+    const y = 5 * Math.cos(phi);
+    const z = 5 * Math.sin(phi) * Math.sin(theta);
+    points.push(new THREE.Vector3(x, y, z));
+  });
+
+  const geometry = new THREE.BufferGeometry().setFromPoints(points);
+  const line = new THREE.Line(geometry, material);
+  scene.add(line);
+  
+  if (!countryBorders) countryBorders = [];
+  countryBorders.push(line);
+}
+
+const visualizer = document.getElementById('visualizer');
+for (let i = 0; i < 50; i++) {
+  const bar = document.createElement('div');
+  bar.className = 'bar';
+  visualizer.appendChild(bar);
+}
+
+function updateVisualizer() {
+  const bars = document.querySelectorAll('.bar');
+  bars.forEach(bar => {
+    const height = Math.random() * 100;
+    bar.style.height = `${height}%`;
+  });
+}
+
+function startVisualizer() {
+  if (!visualizerInterval) {
+    visualizerInterval = setInterval(updateVisualizer, 100);
+  }
+}
+
+function stopVisualizer() {
+  if (visualizerInterval) {
+    clearInterval(visualizerInterval);
+    visualizerInterval = null;
+    const bars = document.querySelectorAll('.bar');
+    bars.forEach(bar => bar.style.height = '0%');
+  }
+}
+
+function populateStations(filteredStations = stations) {
+  const stationListContainer = document.getElementById('station-list-container');
+  stationListContainer.innerHTML = `
+    <div style="margin-bottom: 1rem; color: #4CAF50;">
+      Showing ${filteredStations.length} of ${stations.length} stations
+    </div>
+  `;
+  
+  const displayStations = filteredStations.slice(0, 1000);
+  
+  displayStations.forEach(station => {
+    const card = document.createElement('div');
+    card.className = 'station-card';
+    card.innerHTML = `
+      <h3>${station.name}</h3>
+      <p><strong>Country:</strong> ${station.country}</p>
+      ${station.language ? `<p><small>Language: ${station.language}</small></p>` : ''}
+      ${station.bitrate ? `<p><small>Quality: ${station.bitrate}kbps</small></p>` : ''}
+    `;
+    card.addEventListener('click', () => playStation(station));
+    stationListContainer.appendChild(card);
+  });
+  
+  if (filteredStations.length > 1000) {
+    stationListContainer.innerHTML += `
+      <div style="padding: 1rem; background: rgba(76, 175, 80, 0.1); border-radius: 8px;">
+        <p>Showing first 1000 stations. Use search or country filter to see more specific results.</p>
+      </div>
+    `;
+  }
+}
+
+function togglePlayPause() {
+  if (audio.paused) {
+    audio.play();
+    document.getElementById('play-pause').textContent = 'Pause';
+    startVisualizer();
+  } else {
+    audio.pause();
+    document.getElementById('play-pause').textContent = 'Play';
+    stopVisualizer();
+  }
+}
+
+document.getElementById('play-pause').addEventListener('click', () => {
+  if (currentStation) {
+    togglePlayPause();
+  }
+});
+
+document.getElementById('stop').addEventListener('click', () => {
+  audio.pause();
+  audio.currentTime = 0;
+  document.getElementById('play-pause').textContent = 'Play';
+  stopVisualizer();
+  markers.forEach(marker => marker.material.color.setHex(0x4CAF50));
+  currentStation = null;
+  document.getElementById('current-station').textContent = 'Select a station';
+  document.querySelectorAll('.station-card').forEach(card => card.classList.remove('playing'));
+});
+
+document.getElementById('volume').addEventListener('input', (e) => {
+  audio.volume = e.target.value / 100;
+  document.querySelector('.volume-label').textContent = `${e.target.value}%`;
+});
+
+function getStationsByCountry(country) {
+  return stations.filter(station => station.country === country);
+}
+
+function filterStations() {
+  const searchTerm = document.querySelector('.station-search').value.toLowerCase();
+  const selectedCountry = document.getElementById('country-filter').value;
+  
+  const filteredStations = stations.filter(station => {
+    const matchesSearch = station.name.toLowerCase().includes(searchTerm);
+    const matchesCountry = !selectedCountry || station.country === selectedCountry;
+    return matchesSearch && matchesCountry;
+  });
+  
+  const stationListContainer = document.getElementById('station-list-container');
+  
+  if (filteredStations.length === 0) {
+    stationListContainer.innerHTML = `
+      <div style="padding: 1rem; background: rgba(255,0,0,0.1); border-radius: 8px; margin-bottom: 1rem;">
+        <h3 style="color: #ff4444; margin-bottom: 0.5rem;">No stations found</h3>
+        <p>Try adjusting your search criteria or selecting a different country.</p>
+      </div>
+    `;
+  } else {
+    populateStations(filteredStations);
+    
+    if (selectedCountry) {
+      markers.forEach((marker, index) => {
+        const station = stations[index];
+        if (station === currentStation) {
+          return;
+        }
+        if (station.country === selectedCountry) {
+          marker.material.color.setHex(0xff0000);
+        } else {
+          marker.material.color.setHex(0x4CAF50);
+        }
+      });
+    } else {
+      markers.forEach((marker, index) => {
+        const station = stations[index];
+        if (station === currentStation) {
+          return;
+        }
+        marker.material.color.setHex(0x4CAF50);
+      });
+    }
+  }
+}
+
+document.querySelector('.station-search').addEventListener('input', filterStations);
+document.getElementById('country-filter').addEventListener('change', filterStations);
+markerSizeSlider.addEventListener('input', (e) => {
+  updateMarkerSize(e.target.value);
+});
+
+window.addEventListener('beforeunload', () => {
+  audio.pause();
+  stopVisualizer();
+});
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  controls.update();
+});
+</script>
+</body>
+</html>
